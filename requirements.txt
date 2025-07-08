@@ -12,3 +12,4 @@ torchvision==0.9.1
 opencv-python==4.7.0.72
 mkl-service
 mkl
+numpy
