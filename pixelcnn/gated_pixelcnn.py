@@ -44,6 +44,7 @@ parser.add_argument("--learning_rate", type=float, default=3e-4)
 args = parser.parse_args()
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+print(f"Using device: {device}")
 
 """
 data loaders
@@ -67,7 +68,7 @@ else:
     )
 
 model = GatedPixelCNN(args.n_embeddings, args.img_dim**2, args.n_layers).to(device)
-criterion = nn.CrossEntropyLoss().cuda()
+criterion = nn.CrossEntropyLoss().to(device)
 opt = torch.optim.Adam(model.parameters(), lr=args.learning_rate)
 
 
@@ -81,11 +82,13 @@ def train():
         start_time = time.time()
         
         if args.dataset == 'LATENT_BLOCK':
-            x = (x[:, 0]).cuda()
+            # I dati latenti sono già [B, 1, H, W], prendiamo solo [B, H, W]
+            if len(x.shape) == 4:  # [B, C, H, W]
+                x = x[:, 0]  # Prendi solo il primo canale -> [B, H, W]
+            x = x.long().to(device)  # Assicurati che sia long tensor
         else:
-            x = (x[:, 0] * (K-1)).long().cuda()
-        label = label.cuda()
-       
+            x = (x[:, 0] * (args.n_embeddings-1)).long().to(device)
+        label = label.to(device)
     
         # Train PixelCNN with images
         logits = model(x, label)
@@ -117,10 +120,12 @@ def test():
     with torch.no_grad():
         for batch_idx, (x, label) in enumerate(test_loader):
             if args.dataset == 'LATENT_BLOCK':
-                x = (x[:, 0]).cuda()
+                if len(x.shape) == 4:  # [B, C, H, W]
+                    x = x[:, 0]  # Prendi solo il primo canale -> [B, H, W]
+                x = x.long().to(device)
             else:
-                x = (x[:, 0] * (args.n_embeddings-1)).long().cuda()
-            label = label.cuda()
+                x = (x[:, 0] * (args.n_embeddings-1)).long().to(device)
+            label = label.to(device)
 
             logits = model(x, label)
             
@@ -142,7 +147,7 @@ def test():
 
 def generate_samples(epoch):
     label = torch.arange(10).expand(10, 10).contiguous().view(-1)
-    label = label.long().cuda()
+    label = label.long().to(device)
 
     x_tilde = model.generate(label, shape=(args.img_dim,args.img_dim), batch_size=100)
     
