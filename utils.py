@@ -45,10 +45,12 @@ def load_block():
                        ]))
     return train, val
 
+
 def load_latent_block():
     data_folder_path = os.getcwd()
-    data_file_path = data_folder_path + \
-        '/data/latent_e_indices.npy'
+    
+
+    data_file_path = data_folder_path + '/data/latent_e_indices.npy'
 
     train = LatentBlockDataset(data_file_path, train=True,
                          transform=None)
@@ -76,7 +78,8 @@ def load_data_and_data_loaders(dataset, batch_size):
         training_data, validation_data = load_cifar()
         training_loader, validation_loader = data_loaders(
             training_data, validation_data, batch_size)
-        x_train_var = np.var(training_data.train_data / 255.0)
+        x_train_var = np.var(training_data.data / 255.0)
+
 
     elif dataset == 'BLOCK':
         training_data, validation_data = load_block()

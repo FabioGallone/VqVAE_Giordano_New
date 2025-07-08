@@ -1,0 +1,1 @@
+python encode_dataset.py --model_path results/vqvae_data_tue_jul_8_13_00_48_2025.pth --dataset CIFAR10 --save_path data/latent_e_indices.npy
