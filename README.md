@@ -1,3 +1,18 @@
+## 👤 Autori
+
+**Fabio Gallone**  
+*Dipartimento di Ingegneria Informatica*  
+*Università degli Studi di Catania*  
+📧 gallone.fa@gmail.com 
+🔗 [https://github.com/FabioGallone](https://github.com/FabioGallone)
+
+**Matteo Santanocito**  
+*Dipartimento di Ingegneria Informatica*  
+*Università degli Studi di Catania*  
+📧 matteosantanocito@outlook.it
+🔗 [https://github.com/MatteoSantanocito](https://github.com/MatteoSantanocito)
+
+
 # VQ-VAE for Calcium Imaging
 
 Questo progetto implementa Vector Quantized Variational Autoencoders (VQ-VAE) per l'analisi di dati di calcium imaging, con particolare focus sui dati dell'Allen Brain Observatory.
@@ -328,9 +343,10 @@ if quantizer_type == 'my_quantizer':
     self.vector_quantization = MyNewQuantizer(...)
 ```
 
-## 📝 License
+## 📄 LICENSE
 
-Questo progetto è rilasciato sotto licenza MIT. Vedi LICENSE per dettagli.
+Questo progetto è rilasciato sotto una licenza open-source con restrizioni specifiche per garantire la corretta attribuzione degli autori.
+
 
 ## 🙏 Acknowledgments
 
