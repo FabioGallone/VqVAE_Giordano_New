@@ -11,6 +11,11 @@ from sklearn.ensemble import RandomForestRegressor
 from allensdk.core.brain_observatory_cache import BrainObservatoryCache
 import warnings
 import os
+
+from scipy.interpolate import interp1d
+from scipy.ndimage import gaussian_filter1d
+from scipy.stats import pearsonr
+
 warnings.filterwarnings('ignore')
 
 print("=== VQ-VAE per Allen Brain Observatory ===\n")
@@ -40,7 +45,7 @@ except:
     good_sessions = []
     
     # Cerca tra le prime 200 sessioni
-    for i, exp in enumerate(experiments[:200]):
+    for i, exp in enumerate(experiments[:10000]):
         if exp.get('cell_count', 0) >= min_neurons:
             try:
                 session_id = exp['id']
@@ -67,7 +72,7 @@ except:
     if not good_sessions:
         # Se ancora niente, usa una sessione nota che funziona
         print("   Usando sessione di default...")
-        session_id = 501940850  # Una sessione che sicuramente ha dati
+        session_id = 501940850 
     else:
         # Scegli la sessione con più neuroni
         best_session = max(good_sessions, key=lambda x: x['neurons'])
@@ -107,18 +112,58 @@ except:
 
 print("\n3. Preprocessing avanzato dei dati...")
 
-# Rimuovi neuroni con bassa varianza (mantieni almeno 20 neuroni)
-neuron_variance = np.var(dff_traces, axis=1)
-min_neurons_to_keep = min(20, dff_traces.shape[0])  # Almeno 20 o tutti se meno di 20
+speed_interp = interp1d(run_ts, running_speed, bounds_error=False, fill_value=0)
+speed_aligned = speed_interp(timestamps)
+speed_smooth = gaussian_filter1d(speed_aligned, sigma=5)
 
-if dff_traces.shape[0] > min_neurons_to_keep:
-    threshold = np.percentile(neuron_variance, 100 * (1 - min_neurons_to_keep / dff_traces.shape[0]))
-    active_neurons = neuron_variance > threshold
-else:
-    active_neurons = np.ones(dff_traces.shape[0], dtype=bool)  # Mantieni tutti
+
+# Calcola correlazioni per ogni neurone
+print("   Calcolando correlazioni neuroni-movimento...")
+correlations = []
+for i, neuron_trace in enumerate(dff_traces):
+    trace_clean = np.nan_to_num(neuron_trace, nan=0.0, posinf=0.0, neginf=0.0)
+    speed_clean = np.nan_to_num(speed_smooth, nan=0.0, posinf=0.0, neginf=0.0)
+    
+    if np.std(trace_clean) > 1e-8 and np.std(speed_clean) > 1e-8:
+        try:
+            corr, _ = pearsonr(trace_clean, speed_clean)
+            if np.isfinite(corr):
+                correlations.append(abs(corr))
+            else:
+                correlations.append(0)
+        except:
+            correlations.append(0)
+    else:
+        correlations.append(0)
+
+correlations = np.array(correlations)
+
+# Seleziona neuroni basandosi su correlazione + varianza
+min_neurons_to_keep = 30
+
+# Combina criteri: alta varianza E correlazione con movimento
+neuron_variance = np.var(dff_traces, axis=1)
+variance_rank = np.argsort(neuron_variance)
+correlation_rank = np.argsort(correlations)
+
+# Score combinato (50% varianza, 50% correlazione)
+combined_score = np.zeros(len(dff_traces))
+for i in range(len(dff_traces)):
+    variance_percentile = np.where(variance_rank == i)[0][0] / len(variance_rank)
+    correlation_percentile = np.where(correlation_rank == i)[0][0] / len(correlation_rank)
+    combined_score[i] = 0.5 * variance_percentile + 0.5 * correlation_percentile
+
+# Seleziona top neuroni
+top_neurons = np.argsort(combined_score)[-min_neurons_to_keep:]
+active_neurons = np.zeros(len(dff_traces), dtype=bool)
+active_neurons[top_neurons] = True
 
 dff_active = dff_traces[active_neurons, :]
-print(f"   Neuroni attivi selezionati: {np.sum(active_neurons)} su {len(active_neurons)}")
+selected_correlations = correlations[active_neurons]
+
+print(f"   Neuroni selezionati: {np.sum(active_neurons)} su {len(active_neurons)}")
+print(f"   Correlazioni motorie: min={selected_correlations.min():.3f}, "
+      f"max={selected_correlations.max():.3f}, mean={selected_correlations.mean():.3f}")
 
 # Normalizza con z-score robusto
 from scipy import stats
@@ -153,10 +198,13 @@ def create_windows_aligned(neural_data, behavior_data, window_size, stride):
     
     return np.array(windows_neural), np.array(windows_behavior)
 
-# Crea finestre con allineamento migliorato
+# Crea finestre con allineamento migliorato - USA speed_smooth!
 neural_windows, behavior_windows = create_windows_aligned(
-    dff_normalized, running_speed, window_size, stride
+    dff_normalized, speed_smooth, window_size, stride
 )
+behavior_windows = np.nan_to_num(behavior_windows, nan=0.0, posinf=0.0, neginf=0.0)
+print(f"   Behavior windows stats: min={behavior_windows.min():.3f}, max={behavior_windows.max():.3f}")
+print(f"   NaN count: {np.isnan(behavior_windows).sum()}")
 
 print(f"   Numero di finestre create: {neural_windows.shape[0]}")
 print(f"   Forma di ogni finestra: {neural_windows.shape[1:]}")
@@ -409,13 +457,13 @@ class GroupedResidualVQ(nn.Module):
         return loss, quantized.permute(0, 2, 1).contiguous(), perplexity, encodings
 
 # =============================================================================
-# MODELLO VQ-VAE COMPLETO MIGLIORATO
+# MODELLO VQ-VAE COMPLETO 
 # =============================================================================
 
 class ImprovedCalciumVQVAE(nn.Module):
     def __init__(self, num_neurons, num_hiddens, num_residual_layers, num_residual_hiddens,
                  num_embeddings, embedding_dim, commitment_cost, quantizer_type='improved_vq',
-                 dropout_rate=0.1):
+                 dropout_rate=0.1, behavior_dim=4):
         super(ImprovedCalciumVQVAE, self).__init__()
         
         self._encoder = ImprovedEncoder(num_neurons, num_hiddens,
@@ -449,8 +497,18 @@ class ImprovedCalciumVQVAE(nn.Module):
             nn.Conv1d(num_hiddens//2, num_neurons,
                       kernel_size=7, stride=1, padding=3)
         )
+        
+        # NUOVO: Behavior prediction head
+        self.behavior_head = nn.Sequential(
+            nn.Linear(embedding_dim, 128),
+            nn.ReLU(),
+            nn.Dropout(0.2),
+            nn.Linear(128, 64),
+            nn.ReLU(),
+            nn.Linear(64, behavior_dim)
+        )
 
-    def forward(self, x):
+    def forward(self, x, return_behavior_pred=True):
         z = self._encoder(x)
         z = self._pre_vq_conv(z)
         loss, quantized, perplexity, encodings = self._vq_vae(z)
@@ -465,8 +523,14 @@ class ImprovedCalciumVQVAE(nn.Module):
         if x_recon.shape[2] != x.shape[2]:
             x_recon = F.interpolate(x_recon, size=x.shape[2], mode='linear', align_corners=False)
 
-        return loss, x_recon, perplexity, quantized, encodings
+        # NUOVO: Behavior prediction
+        behavior_pred = None
+        if return_behavior_pred:
+            z_pooled = quantized.mean(dim=2)
+            behavior_pred = self.behavior_head(z_pooled)
 
+        return loss, x_recon, perplexity, quantized, encodings, behavior_pred
+    
 # =============================================================================
 # DECODIFICATORE COMPORTAMENTALE NON LINEARE
 # =============================================================================
@@ -491,9 +555,9 @@ class BehaviorDecoder(nn.Module):
 # =============================================================================
 # TRAINING MIGLIORATO
 # =============================================================================
-
 def train_model_improved(model, train_loader, val_loader, test_loader, 
-                        num_epochs=150, learning_rate=3e-4, device='cuda'):
+                        num_epochs=150, learning_rate=3e-4, device='cuda',
+                        behavior_weight=0.5):  # AGGIUNGI behavior_weight
     
     # Optimizer con learning rate scheduling
     optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
@@ -510,6 +574,7 @@ def train_model_improved(model, train_loader, val_loader, test_loader,
     train_res_perplexity = []
     val_res_recon_error = []
     val_res_perplexity = []
+    val_behavior_r2 = []  # NUOVO
     
     for epoch in range(num_epochs):
         # Training
@@ -517,15 +582,19 @@ def train_model_improved(model, train_loader, val_loader, test_loader,
         train_recon_error = 0
         train_perplexity = 0
         
-        for batch_idx, (data, _) in enumerate(train_loader):
+        for batch_idx, (data, behavior) in enumerate(train_loader):
             data = data.to(device)
+            behavior = behavior.to(device)  # NUOVO
             optimizer.zero_grad()
 
-            vq_loss, data_recon, perplexity, quantized, _ = model(data)
+            vq_loss, data_recon, perplexity, quantized, _, behavior_pred = model(data)
             recon_error = F.mse_loss(data_recon, data)
             
-            # Loss totale con peso bilanciato
-            loss = recon_error + 0.25 * vq_loss
+            # NUOVO: Behavior loss
+            behavior_loss = F.mse_loss(behavior_pred, behavior)
+            
+            # Loss totale multi-task
+            loss = recon_error + 0.25 * vq_loss + behavior_weight * behavior_loss
             
             train_recon_error += recon_error.item()
             train_perplexity += perplexity.item()
@@ -541,13 +610,30 @@ def train_model_improved(model, train_loader, val_loader, test_loader,
         model.eval()
         val_recon_error = 0
         val_perplexity = 0
+        val_predictions = []
+        val_targets = []
         
         with torch.no_grad():
-            for data, _ in val_loader:
+            for data, behavior in val_loader:
                 data = data.to(device)
-                vq_loss, data_recon, perplexity, _, _ = model(data)
+                behavior = behavior.to(device)
+                vq_loss, data_recon, perplexity, _, _, behavior_pred = model(data)
                 val_recon_error += F.mse_loss(data_recon, data).item()
                 val_perplexity += perplexity.item()
+                
+                # Salva per R2
+                val_predictions.append(behavior_pred.cpu().numpy())
+                val_targets.append(behavior.cpu().numpy())
+        
+        # Calcola R2 per validazione
+        val_predictions = np.vstack(val_predictions)
+        val_targets = np.vstack(val_targets)
+        from sklearn.metrics import r2_score
+        valid_mask = np.isfinite(val_targets[:, 0]) & np.isfinite(val_predictions[:, 0])
+        if valid_mask.sum() > 0:
+            r2_val = r2_score(val_targets[valid_mask, 0], val_predictions[valid_mask, 0])
+        else:
+            r2_val = 0.0
         
         # Calculate averages
         avg_train_recon = train_recon_error / len(train_loader)
@@ -559,6 +645,7 @@ def train_model_improved(model, train_loader, val_loader, test_loader,
         train_res_perplexity.append(avg_train_perplexity)
         val_res_recon_error.append(avg_val_recon)
         val_res_perplexity.append(avg_val_perplexity)
+        val_behavior_r2.append(r2_val)
         
         # Learning rate scheduling
         scheduler.step(avg_val_recon)
@@ -568,7 +655,7 @@ def train_model_improved(model, train_loader, val_loader, test_loader,
             best_val_loss = avg_val_recon
             patience_counter = 0
             # Salva il miglior modello
-            torch.save(model.state_dict(), 'best_model.pt')
+            torch.save(model.state_dict(), f'best_model_{model.quantizer_type}.pt')
         else:
             patience_counter += 1
             if patience_counter >= patience:
@@ -579,10 +666,11 @@ def train_model_improved(model, train_loader, val_loader, test_loader,
             print(f'Epoch [{epoch+1}/{num_epochs}] '
                   f'Train Recon: {avg_train_recon:.4f}, '
                   f'Train Perplexity: {avg_train_perplexity:.2f}, '
-                  f'Val Recon: {avg_val_recon:.4f}')
+                  f'Val Recon: {avg_val_recon:.4f}, '
+                  f'Val R²: {r2_val:.3f}')  # MOSTRA R2
     
     # Carica il miglior modello
-    model.load_state_dict(torch.load('best_model.pt'))
+    model.load_state_dict(torch.load(f'best_model_{model.quantizer_type}.pt'))
     
     # Test final
     test_recon_error = []
@@ -591,89 +679,50 @@ def train_model_improved(model, train_loader, val_loader, test_loader,
     with torch.no_grad():
         for data, _ in test_loader:
             data = data.to(device)
-            vq_loss, data_recon, perplexity, _, _ = model(data)
+            vq_loss, data_recon, perplexity, _, _, _ = model(data)
             test_recon_error.append(F.mse_loss(data_recon, data).item())
             test_perplexity.append(perplexity.item())
     
     return (train_res_recon_error, train_res_perplexity, 
             val_res_recon_error, val_res_perplexity,
             test_recon_error, test_perplexity)
-
 # =============================================================================
 # EVALUATION MIGLIORATA
 # =============================================================================
 
-def train_behavior_decoder(model, train_loader, val_loader, device='cuda', 
-                          epochs=50, lr=1e-3):
-    """Addestra un decodificatore neurale per il comportamento"""
+def evaluate_behavior_prediction(model, test_loader, device='cuda'):
+    """Valuta direttamente le predizioni del behavior head integrato"""
     
-    # Estrai rappresentazioni
-    print("   Estraendo rappresentazioni latenti...")
     model.eval()
-    train_representations = []
-    train_behaviors = []
+    all_predictions = []
+    all_targets = []
     
     with torch.no_grad():
-        for data, behavior in train_loader:
+        for data, behavior in test_loader:
             data = data.to(device)
-            _, _, _, quantized, _ = model(data)
-            # Global average pooling
-            representations = quantized.mean(dim=2)
-            train_representations.append(representations)
-            train_behaviors.append(behavior)
+            _, _, _, _, _, behavior_pred = model(data)
+            
+            # Controllo NaN
+            if torch.isnan(behavior_pred).any():
+                print("Warning: NaN detected in behavior predictions")
+                behavior_pred = torch.nan_to_num(behavior_pred, nan=0.0)
+            
+            all_predictions.append(behavior_pred.cpu().numpy())
+            all_targets.append(behavior.numpy())
     
-    train_representations = torch.cat(train_representations, dim=0)
-    train_behaviors = torch.cat(train_behaviors, dim=0).to(device)
+    all_predictions = np.nan_to_num(all_predictions, nan=0.0, posinf=0.0, neginf=0.0)
+    all_targets = np.nan_to_num(all_targets, nan=0.0, posinf=0.0, neginf=0.0)
     
-    # Crea e addestra decodificatore
-    print("   Addestrando decodificatore comportamentale...")
-    decoder = BehaviorDecoder(
-        input_dim=train_representations.shape[1],
-        output_dim=train_behaviors.shape[1]
-    ).to(device)
+    # Calcola R² per ogni feature
+    feature_names = ['Mean Speed', 'Speed Std', 'Max Speed', 'Speed Change']
+    r2_scores = []
     
-    optimizer = torch.optim.Adam(decoder.parameters(), lr=lr)
-    criterion = nn.MSELoss()
+    for i in range(all_targets.shape[1]):
+        r2 = r2_score(all_targets[:, i], all_predictions[:, i])
+        r2_scores.append(r2)
+        print(f"  {feature_names[i]}: R² = {r2:.3f}")
     
-    decoder.train()
-    for epoch in range(epochs):
-        optimizer.zero_grad()
-        predictions = decoder(train_representations)
-        loss = criterion(predictions, train_behaviors)
-        loss.backward()
-        optimizer.step()
-        
-        if (epoch + 1) % 10 == 0:
-            print(f"      Epoch {epoch+1}/{epochs}, Loss: {loss.item():.4f}")
-    
-    # Valuta su validation set
-    decoder.eval()
-    val_representations = []
-    val_behaviors = []
-    
-    with torch.no_grad():
-        for data, behavior in val_loader:
-            data = data.to(device)
-            _, _, _, quantized, _ = model(data)
-            representations = quantized.mean(dim=2)
-            val_representations.append(representations)
-            val_behaviors.append(behavior)
-    
-    val_representations = torch.cat(val_representations, dim=0)
-    val_behaviors = torch.cat(val_behaviors, dim=0).to(device)
-    
-    with torch.no_grad():
-        val_predictions = decoder(val_representations)
-        val_r2_scores = []
-        for i in range(val_behaviors.shape[1]):
-            r2 = r2_score(
-                val_behaviors[:, i].cpu().numpy(),
-                val_predictions[:, i].cpu().numpy()
-            )
-            val_r2_scores.append(r2)
-    
-    return decoder, val_r2_scores
-
+    return r2_scores
 # =============================================================================
 # MAIN EXPERIMENT MIGLIORATO
 # =============================================================================
@@ -737,7 +786,7 @@ def main():
     
     vqvae_model = ImprovedCalciumVQVAE(
         num_neurons, num_hiddens, num_residual_layers, num_residual_hiddens,
-        num_embeddings, embedding_dim, commitment_cost, quantizer_type='improved_vq'
+        num_embeddings, embedding_dim, commitment_cost, quantizer_type='improved_vq', behavior_dim=4
     ).to(device)
     
     print(f"Parametri modello: {sum(p.numel() for p in vqvae_model.parameters() if p.requires_grad):,}")
@@ -745,13 +794,13 @@ def main():
     (vq_train_recon, vq_train_perp, vq_val_recon, vq_val_perp, 
      vq_test_recon, vq_test_perp) = train_model_improved(
         vqvae_model, train_loader, val_loader, test_loader, 
-        num_epochs, learning_rate, device
+        num_epochs, learning_rate, device, behavior_weight=0.5
     )
     
     # Train behavior decoder
-    behavior_decoder, vq_r2_scores = train_behavior_decoder(
-        vqvae_model, train_loader, val_loader, device
-    )
+    print("   Valutando predizioni comportamentali...")
+    vq_r2_scores = evaluate_behavior_prediction(vqvae_model, test_loader, device)
+
     
     # Calculate codebook usage
     if hasattr(vqvae_model._vq_vae, '_codebook_usage'):
@@ -783,19 +832,19 @@ def main():
     
     grvq_model = ImprovedCalciumVQVAE(
         num_neurons, num_hiddens, num_residual_layers, num_residual_hiddens,
-        num_embeddings, embedding_dim, commitment_cost, quantizer_type='grouped_rvq'
+        num_embeddings, embedding_dim, commitment_cost, quantizer_type='grouped_rvq', behavior_dim=4
     ).to(device)
     
     (grvq_train_recon, grvq_train_perp, grvq_val_recon, grvq_val_perp,
      grvq_test_recon, grvq_test_perp) = train_model_improved(
         grvq_model, train_loader, val_loader, test_loader,
-        num_epochs, learning_rate, device
+        num_epochs, learning_rate, device, behavior_weight=0.5
     )
     
     # Train behavior decoder
-    grvq_decoder, grvq_r2_scores = train_behavior_decoder(
-        grvq_model, train_loader, val_loader, device
-    )
+    print("   Valutando predizioni comportamentali...")
+    grvq_r2_scores = evaluate_behavior_prediction(grvq_model, test_loader, device)
+
     
     results['grouped_rvq'] = {
         'final_recon_mse': np.mean(grvq_test_recon),
