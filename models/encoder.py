@@ -97,7 +97,7 @@ class CalciumEncoder(nn.Module):
             for _ in range(num_residual_layers)
         ])
         
-        self._dropout = nn.Dropout1d(dropout_rate)
+        self._dropout = nn.Dropout(dropout_rate)
 
     def forward(self, inputs):
         x = F.relu(self._conv_1(inputs))

@@ -82,7 +82,7 @@ class CalciumDecoder(nn.Module):
             kernel_size=7, stride=1, padding=3
         )
         
-        self._dropout = nn.Dropout1d(dropout_rate)
+        self._dropout = nn.Dropout(dropout_rate)
 
     def forward(self, x):
         # Apply residual blocks
@@ -130,7 +130,7 @@ class CalciumVQVAE(nn.Module):
             nn.Conv1d(in_channels=num_hiddens, 
                       out_channels=embedding_dim,
                       kernel_size=1, stride=1),
-            nn.Dropout1d(dropout_rate)
+            nn.Dropout(dropout_rate)
         )
         
         # Vector Quantizer

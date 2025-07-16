@@ -1,0 +1,153 @@
+python scripts/train_calcium.py
+>> 
+Experiment name: calcium_improved_vq_behav_1752671297
+Using device: cuda
+Configuration saved to: ./results\calcium_improved_vq_behav_1752671297_config.yaml
+
+Creating dataloaders...
+Creating dataloaders with config: {'dataset_type': 'single', 'batch_size': 32, 'num_workers': 0, 'session_id': None, 'window_size': 50, 'stride': 10, 'min_neurons': 30, 'augment': True}
+Loading Allen Brain Observatory data...
+Searching for suitable sessions...
+Using fallback session
+Session 501940850: 143 neurons, 115730 timepoints
+Selected 30 active neurons
+Final dataset: 11569 windows, neural shape: torch.Size([11569, 30, 50]), behavior shape: torch.Size([11569, 4])
+Dataset info:
+  Total samples: 11569
+  Train/Val/Test: 6943/2313/2313
+  Neural shape: torch.Size([30, 50])
+  Behavior shape: torch.Size([4])
+  Session ID: 501940850
+
+Creating model...
+Created improved_vq model:
+  Parameters: 360,962
+  Behavior prediction: True
+
+Starting training...
+Training configuration: {'num_epochs': 100, 'learning_rate': 0.0003, 'behavior_weight': 0.5, 'patience': 20, 'gradient_clip': 1.0, 'save_best': True, 'eval_interval': 5, 'device': 'cuda', 'save_dir': './results', 'experiment_name': 'calcium_improved_vq_behav_1752671297'}
+Trainer initialized for experiment: calcium_improved_vq_behav_1752671297
+Model parameters: 360,962
+Device: cuda
+
+Starting training for 100 epochs...
+Behavior weight: 0.5
+Learning rate: 0.0003
+Patience: 20
+
+Epoch [  1] (13.9s, total: 0.2min)
+  Train | Recon: 0.9679, VQ: 0.0165, Behavior: 4092.6543, Perplexity: 1.0
+  Val   | Recon: 0.9726, VQ: 0.0067, Behavior: 3389.5703, Total: 1695.7595
+        | Behavior R²: -0.001
+  Best Val Loss: 1695.7595 (epoch 1), Patience: 0
+
+Epoch [ 10] (9.3s, total: 1.6min)
+  Train | Recon: 0.6849, VQ: 0.1764, Behavior: 2970.4745, Perplexity: 59.8
+  Val   | Recon: 0.7802, VQ: 0.2056, Behavior: 1751.4579, Total: 876.5606
+        | Behavior R²: 0.506
+  Best Val Loss: 876.5606 (epoch 10), Patience: 0
+
+Epoch [ 20] (9.5s, total: 3.1min)
+  Train | Recon: 0.4765, VQ: 0.1706, Behavior: 390.5664, Perplexity: 88.0
+  Val   | Recon: 0.3908, VQ: 0.0694, Behavior: 440.2181, Total: 220.5171
+        | Behavior R²: 0.857
+  Best Val Loss: 66.5623 (epoch 19), Patience: 1
+
+Epoch [ 30] (9.4s, total: 4.6min)
+  Train | Recon: 0.3080, VQ: 0.1556, Behavior: 104.6870, Perplexity: 107.2
+  Val   | Recon: 0.2770, VQ: 0.0657, Behavior: 25.9863, Total: 13.2866
+        | Behavior R²: 0.992
+  Best Val Loss: 5.3048 (epoch 28), Patience: 2
+Epoch    39: reducing learning rate of group 0 to 1.5000e-04.
+
+Epoch [ 40] (9.4s, total: 6.1min)
+  Train | Recon: 0.2642, VQ: 0.1240, Behavior: 89.3581, Perplexity: 127.7
+  Val   | Recon: 0.2495, VQ: 0.0544, Behavior: 30.0995, Total: 15.3129
+        | Behavior R²: 0.988
+  Best Val Loss: 5.3048 (epoch 28), Patience: 12
+
+Epoch [ 50] (9.7s, total: 7.6min)
+  Train | Recon: 0.2540, VQ: 0.1215, Behavior: 92.4601, Perplexity: 138.9
+  Val   | Recon: 0.2423, VQ: 0.0500, Behavior: 104.8499, Total: 52.6798
+        | Behavior R²: 0.964
+  Best Val Loss: 2.9426 (epoch 45), Patience: 5
+Epoch    56: reducing learning rate of group 0 to 7.5000e-05.
+
+Epoch [ 60] (9.1s, total: 9.1min)
+  Train | Recon: 0.2453, VQ: 0.1167, Behavior: 68.2567, Perplexity: 138.8
+  Val   | Recon: 0.2365, VQ: 0.0486, Behavior: 1.7780, Total: 1.1377
+        | Behavior R²: 0.999
+  Best Val Loss: 1.1377 (epoch 60), Patience: 0
+
+Epoch [ 70] (9.3s, total: 10.5min)
+  Train | Recon: 0.2435, VQ: 0.1157, Behavior: 60.6648, Perplexity: 131.4
+  Val   | Recon: 0.2319, VQ: 0.0503, Behavior: 10.4743, Total: 5.4817
+        | Behavior R²: 0.996
+  Best Val Loss: 1.1377 (epoch 60), Patience: 10
+Epoch    71: reducing learning rate of group 0 to 3.7500e-05.
+
+Epoch [ 80] (10.1s, total: 12.1min)
+  Train | Recon: 0.2418, VQ: 0.1134, Behavior: 25.9464, Perplexity: 126.2
+  Val   | Recon: 0.2314, VQ: 0.0506, Behavior: 12.7093, Total: 6.5987
+        | Behavior R²: 0.994
+  Best Val Loss: 1.1377 (epoch 60), Patience: 20
+
+Early stopping at epoch 80
+Best validation loss: 1.137680 at epoch 60
+
+Training completed. Running final evaluation...
+
+Test Behavior Prediction Results:
+
+Behavior Prediction Results
+===========================
+Mean Speed      | R²:  0.996 | MSE:  97.2201 | MAE:   0.5263 | Corr:  0.998
+Speed Std       | R²:  0.747 | MSE:  55.8148 | MAE:   0.3901 | Corr:  0.865
+Max Speed       | R²:  0.995 | MSE: 164.7587 | MAE:   0.7426 | Corr:  0.997
+Speed Change    | R²:  0.029 | MSE: 738.6183 | MAE:   1.5333 | Corr:  0.177
+------------------------------------------------------------
+Overall         | Mean R²:  0.692 | Best:  0.996 | Worst:  0.029
+
+Test Metrics:
+  Reconstruction MSE: 0.266272
+  VQ Loss: 0.062286
+  Perplexity: 131.07
+  Behavior Loss: 261.502629
+
+Validation Behavior Prediction Results:
+
+Behavior Prediction Results
+===========================
+Mean Speed      | R²:  0.999 | MSE:   7.9010 | MAE:   0.0892 | Corr:  0.999
+Speed Std       | R²:  0.944 | MSE:   2.4706 | MAE:   0.0538 | Corr:  0.972
+Max Speed       | R²:  1.000 | MSE:   2.1674 | MAE:   0.0547 | Corr:  1.000
+Speed Change    | R²: -0.000 | MSE: 272.1272 | MAE:   0.5806 | Corr:  0.099
+------------------------------------------------------------
+Overall         | Mean R²:  0.736 | Best:  1.000 | Worst: -0.000
+
+Validation Metrics:
+  Reconstruction MSE: 0.236543
+  VQ Loss: 0.048554
+  Perplexity: 131.21
+  Behavior Loss: 70.465850
+
+Final Results:
+  Best epoch: 60
+  Best validation loss: 1.137680
+  Codebook usage: 97.3%
+  Training curves: ./results\calcium_improved_vq_behav_1752671297_training_curves.png
+  Reconstruction examples: ./results\calcium_improved_vq_behav_1752671297_reconstructions.png
+
+Results saved to:
+  JSON: ./results\calcium_improved_vq_behav_1752671297_results.json
+  Pickle: ./results\calcium_improved_vq_behav_1752671297_results.pkl
+
+Training completed successfully!
+Best validation loss: 1.137680
+Results saved in: ./results
+
+Final Test Results:
+  Reconstruction MSE: 0.266272
+  Perplexity: 131.07
+  Mean Behavior R²: 0.692
+  Codebook Usage: 97.3%

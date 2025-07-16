@@ -60,6 +60,14 @@ vqvae-calcium/
 git clone https://github.com/FabioGallone/VqVAE_Giordano.git
 cd vqvae-calcium
 
+# Prima devi creare il tuo ambiente virtuale in Python 3.9 (solo questa versione è compatibile con mkl-service==2.5.2)
+py -3.9 -m venv venv
+.\venv\Scripts\activate
+
+#Per verificare la versione corrente: 
+py --version
+
+
 # Install dependencies
 pip install -r requirements.txt
 
@@ -92,6 +100,14 @@ python scripts/train_calcium.py --create-config
 # Modifica configs/default.yaml e poi:
 python scripts/train_calcium.py --config configs/default.yaml
 ```
+### 4. Generazione del report 
+1. Report su Enanched_VQ
+Sostituisci "XXXX" con il numero generato
+python scripts/analyze_results.py --model_path results/calcium_improved_vq_behav_XXXX_best.pth --experiment_name my_analysis --save_dir ./my_analysis_results_enanched_VQ
+
+2. Report su Grouped Residual VQ
+Sostituisci "XXXX" con il numero generato
+python scripts/analyze_results.py --model_path results/calcium_improved_vq_behav_XXXX_best.pth --experiment_name my_analysis --save_dir ./my_analysis_results_Grouped_Residua_VQ
 
 ## 🧠 Modelli Disponibili
 
