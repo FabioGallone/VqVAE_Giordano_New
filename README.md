@@ -372,6 +372,3 @@ If you use this code, please also cite the original VQ-VAE implementation:
   year = {2019}
 }
 
----
-
-**💡 Suggerimento**: Inizia con `python scripts/train_calcium.py --debug` per un test rapido, poi usa configurazioni complete per esperimenti reali!
