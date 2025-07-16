@@ -351,7 +351,6 @@ Questo progetto è rilasciato sotto una licenza open-source con restrizioni spec
 
 ## 🙏 Acknowledgments
 
-- **Original VQ-VAE**: Implementation basata su [repository originale](https://github.com/deepmind/sonnet)
 - **Allen Institute**: Per i dati pubblici del Brain Observatory
 - **PyTorch Team**: Per il framework deep learning
 
