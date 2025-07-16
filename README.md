@@ -13,7 +13,6 @@
 🔗 [https://github.com/MatteoSantanocito](https://github.com/MatteoSantanocito)
 
 
-
 # VQ-VAE for Calcium Imaging
 
 Questo progetto implementa Vector Quantized Variational Autoencoders (VQ-VAE) per l'analisi di dati di calcium imaging, con particolare focus sui dati dell'Allen Brain Observatory.
@@ -102,12 +101,12 @@ python scripts/train_calcium.py --config configs/default.yaml
 ```
 ### 4. Generazione del report 
 1. Report su Enanched_VQ
-Sostituisci "XXXX" con il numero generato
+Sostituisci "XXXX" con il numero dell'esperimento generato
 python scripts/analyze_results.py --model_path results/calcium_improved_vq_behav_XXXX_best.pth --experiment_name my_analysis --save_dir ./my_analysis_results_enanched_VQ
 
 2. Report su Grouped Residual VQ
-Sostituisci "XXXX" con il numero generato
-python scripts/analyze_results.py --model_path results/calcium_improved_vq_behav_XXXX_best.pth --experiment_name my_analysis --save_dir ./my_analysis_results_Grouped_Residua_VQ
+Sostituisci "XXXX" con il numero dell'esperimento generato
+python scripts/analyze_results.py --model_path results/calcium_grouped_rvq_behav_XXXX_best.pth --experiment_name my_analysis --save_dir ./my_analysis_results_Grouped_Residual_VQ
 
 ## 🧠 Modelli Disponibili
 
