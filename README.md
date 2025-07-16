@@ -13,6 +13,7 @@
 🔗 [https://github.com/MatteoSantanocito](https://github.com/MatteoSantanocito)
 
 
+
 # VQ-VAE for Calcium Imaging
 
 Questo progetto implementa Vector Quantized Variational Autoencoders (VQ-VAE) per l'analisi di dati di calcium imaging, con particolare focus sui dati dell'Allen Brain Observatory.
@@ -353,6 +354,24 @@ Questo progetto è rilasciato sotto una licenza open-source con restrizioni spec
 - **Original VQ-VAE**: Implementation basata su [repository originale](https://github.com/deepmind/sonnet)
 - **Allen Institute**: Per i dati pubblici del Brain Observatory
 - **PyTorch Team**: Per il framework deep learning
+
+
+This project is based on the VQ-VAE implementation by Misha Laskin:
+- **Original Repository**: https://github.com/MishaLaskin/vqvae
+
+We extend our gratitude to Misha Laskin for providing the foundational VQ-VAE implementation that served as the starting point for our calcium imaging specialization.
+
+## Citation
+
+If you use this code, please also cite the original VQ-VAE implementation:
+
+```bibtex
+@software{laskin2019vqvae,
+  author = {Misha Laskin},
+  title = {VQ-VAE Implementation},
+  url = {https://github.com/MishaLaskin/vqvae},
+  year = {2019}
+}
 
 ---
 
