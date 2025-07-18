@@ -12,6 +12,12 @@
 📧 matteosantanocito@outlook.it
 🔗 [https://github.com/MatteoSantanocito](https://github.com/MatteoSantanocito)
 
+**Claudio D'Errico**
+Dipartimento di Ingegneria Informatica
+Università degli Studi di Catania
+📧 claudioderrico01@gmail.com
+🔗 [https://github.com/ClaudioDerrico](https://github.com/ClaudioDerrico)
+
 
 # VQ-VAE for Calcium Imaging
 
